@@ -155,6 +155,20 @@ class ProjectEnv(gym.Env):
         else:  # rgb_array
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
 
+        def rgb_to_codes(surface):
+            rgb_array = np.transpose(np.array(pygame.surfarray.pixels3d(surface)), axes=(1, 0, 2))
+        
+            code_array = np.zeros((rgb_array.shape[0], rgb_array.shape[1]), dtype=int)
+        
+            #convert each pixel to tuple and map
+            for r in range(rgb_array.shape[0]):
+                for c in range(rgb_array.shape[1]):
+                    rgb = tuple(rgb_array[r, c])
+                    code_array[r, c] = COLOR_MAP.get(rgb, -1)
+    
+        return code_array
+
+
 
     def close(self):
         if self.window is not None:

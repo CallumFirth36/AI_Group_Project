@@ -3,7 +3,7 @@
 ## Contributers
 # Callum Firth 2635930
 # Jonny Forbes 2643497
-# 
+# Bailey Clark 2636229
 # firstName lastName MatriculationNumber
 
 
@@ -90,6 +90,7 @@ class MapTraversalEnvironment(gym.Env):
     # set values of grid based on colours
     def generateGridValues(self):
         # Create a 2D list to hold the integer color values
+        target_rgb = (0, 255, 0)
         pixel_array_2d = []
         
         print(f"Image size: {WIDTH}x{HEIGHT}")
@@ -100,12 +101,12 @@ class MapTraversalEnvironment(gym.Env):
             row = []
             for x in range(WIDTH):
                 # Get RGB value (ignores alpha if present)
-                r, g, b, _ = self.mapImage.get_at((x, y))  # _ is alpha, we ignore it
-                
-                # Convert RGB to single 24-bit integer: 0xRRGGBB
-                color_int = (r << 16) + (g << 8) + b
-                
-                row.append(color_int)
+                r, g, b, _ = self.mapImage.get_at((x, y))
+
+                if (r, g, b) == target_rgb:
+                    row.append(1)
+                else:
+                    row.append(0)
             pixel_array_2d.append(row)
         
         # Print the entire 2D array (warning: big images = lots of output!)

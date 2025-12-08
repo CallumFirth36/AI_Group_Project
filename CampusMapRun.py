@@ -1,6 +1,6 @@
 import sys 
 sys.path.append('../')
-from MapTraversal import MapTraversalEnvironment
+from CampusTraversalEnvironment import MapTraversalEnvironment
 from randomSearchBot import RandomSearchBot
 
 you = RandomSearchBot()

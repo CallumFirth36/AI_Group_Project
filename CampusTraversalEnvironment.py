@@ -6,7 +6,6 @@
 # Bailey Clark 2636229
 # firstName lastName MatriculationNumber
 
-
 from enum import Enum
 import time
 import gymnasium as gym
@@ -18,8 +17,9 @@ import pygame
 WIDTH = 1280
 HEIGHT = 720
 IMAGE_SIZE = (WIDTH, HEIGHT)
-ROADCOLOURS = (200, 214, 226)
-GRASSPATHCOLOURS = (166, 233, 194)
+ROADCOLOURS = (200, 214, 226), (197,212,225)
+LOCATIONS = [] # Add Colours for building locations here (Probably something simple like (1,0,0) an increminting the first digit each time, I will add a key somewhere on the Git showing which building each value represents!
+PATHVALUE = 1
 
 
 # movement directions
@@ -28,10 +28,6 @@ class Actions(Enum):
     NORTH = 1
     WEST = 2
     SOUTH = 3
-    NORTHEAST = 4
-    NORTHWEST = 5
-    SOUTHEAST = 6
-    SOUTHWEST = 7
 
 # custom enviroment
 class MapTraversalEnvironment(gym.Env):
@@ -43,7 +39,17 @@ class MapTraversalEnvironment(gym.Env):
         self.size = IMAGE_SIZE
         self.window = pygame.display.set_mode(self.size)
         self.mapImage = pygame.image.load("campusMapAllRoadGreenLine.png").convert()
-        self.map = self.generateGridValues()
+        self.map = np.zeros(self.size)
+        self.generateGridValues()
+        self.distanceTraversed = 0
+        self.reward = 0
+        self.currentLocation = [0,0]
+        self.targetLocation = [0,0]
+        self.randomStartAndTarget()
+
+        assert renderMode is None or renderMode in self.metadata["renderModes"]
+        self.renderMode = renderMode
+        self.clock = None
 
         # observation space - just the grid, coordinates of current/target location and value of current/target location (Change value of high to match total different types of values in grid)- can make copy of grid inside of agent and do calculations there
         self.observation_space = spaces.Dict({
@@ -73,50 +79,96 @@ class MapTraversalEnvironment(gym.Env):
 
     # returns current observation of enviroment
     def getObs(self):
-        pass
+
+    # Janky and needs change to actually use observation space but this works for now
+        return self.map, self.currentLocation, self.targetLocation, hasArrived
 
     # resets enviroment to initial state
     def reset(self, seed=None, options=None):
-        self.generateGridValues()
+        #Grid values do not need to be reset only the dispay image and new start/targets
+        #we need to add the building locations to the Map as their own colours adn use them as the target locations not jsut random postions on green line, I will do that soon!
+        super().reset(seed=seed)
+        self.mapImage = pygame.image.load("campusMapAllRoadGreenLine.png").convert()
+        self.randomStartAndTarget()
+
+        return self.getObs(False)
+
+    #Set starting location
+    def setStart(self, startPos):
+        self.currentLocation[0] = startPos[0]
+        self.currentLocation[1] = startPos[1]
+        return True
+
+    
+    #Set targetLocation
+    def setTarget(self, targetPos):
+        self.targetLocation[0] = targetPos[0]
+        self.targetLocation[1] = targetPos[1]
+        return True
+
+    #Maybe used in future for allowing the user to click anywhere on the map for start and end? IDK might be difficult
+    def setStartAndEndMouse(self):
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                posx = pygame.mouse.get_pos()[0]    
+                if not self.setStart(posx):
+                    if self.setTarget(posx):
+                        break
 
     # return True or False
+    # Ensures search methods/Neural Networks cannot generate bad movements, Add negative reward here for training nueral network to make sure it never makes wrong moves.
     def validateMove(self, action):
-        pass
+        if self.map[self.currentLocation[0] + action[0]][self.currentLocation[1] + action[1]] == 1:
+            return True
+            
+        return False
+        
+    # Very messy but sets a random location on the green line as the start and end point
+    # Also updates the map and adds a blue square for where the end point is!
+    def randomStartAndTarget(self):
+        targetPos = [1,0]
+        startPos = [1,0]
+
+        while self.map[startPos[0]][startPos[1]] != 1:
+            startPos = [np.random.randint(0, WIDTH), np.random.randint(0, HEIGHT)]
+        while self.map[targetPos[0]][targetPos[1]] != 1:
+            targetPos = [np.random.randint(0, WIDTH), np.random.randint(0, HEIGHT)]
+
+        print(startPos,"startPos")
+        print(targetPos,"targetPos")
+        
+        self.setStart(startPos)
+        self.setTarget(targetPos)
+        self.mapImage.set_at((self.targetLocation[0],self.targetLocation[1]) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]+1,self.targetLocation[1]) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]-1,self.targetLocation[1]) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0],self.targetLocation[1]+1) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0],self.targetLocation[1]-1) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]+1,self.targetLocation[1]+1) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]+1,self.targetLocation[1]-1) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]-1,self.targetLocation[1]+1) , (0,0,255))
+        self.mapImage.set_at((self.targetLocation[0]-1,self.targetLocation[1]-1) , (0,0,255))
+
 
     # update current location and distance traversed
     def processMove(self, action):
-        pass
+        # Updates current location and changes colour on map to red, actually looks nice!
+        # I have included distance traversed counter incaser we want to display the distance on the end screen
+        self.currentLocation[0] = self.currentLocation[0] + action[0]
+        self.currentLocation[1] = self.currentLocation[1] + action[1]
+        self.drawPath()
+        self.distanceTraversed += 1
 
     # set values of grid based on colours
     def generateGridValues(self):
-        # Create a 2D list to hold the integer color values
-        target_rgb = (0, 255, 0)
-        pixel_array_2d = []
-        
-        print(f"Image size: {WIDTH}x{HEIGHT}")
-        print("Converting pixels to integers...")
-        
-        # Loop through every pixel
-        for y in range(HEIGHT):
-            row = []
-            for x in range(WIDTH):
-                # Get RGB value (ignores alpha if present)
-                r, g, b, _ = self.mapImage.get_at((x, y))
-
-                if (r, g, b) == target_rgb:
-                    row.append(1)
-                else:
-                    row.append(0)
-            pixel_array_2d.append(row)
-        
-        # Print the entire 2D array (warning: big images = lots of output!)
-        print("\n2D Pixel Array (RGB as integers):")
-        for row in pixel_array_2d:
-            print(row)
-        
-        print("\nDone! Pixel data stored in 'pixel_array_2d'")
-
-        return pixel_array_2d
+        # Simplified version of generate grid
+        # Old one was good and worked but i think this one is easier to expand into adding the locations
+        # once locations are added to the map i will add a loop that will check a list containing their colours and update the self.map grid with unique numbers
+        for x in range(WIDTH):
+            for y in range(HEIGHT):
+                pixelColour = self.mapImage.get_at((x, y))
+                if pixelColour == (0,255,0):
+                    self.map[x][y] = PATHVALUE
     
     # check if current location = target and return True or False
     def hasArrived():
@@ -125,17 +177,21 @@ class MapTraversalEnvironment(gym.Env):
       return False
 
     # updates agent in enviroment
+    # Probably needs changing but works for now
     def step(self, action):
-        if self.validateMove(action):
+        self.renderFrame()
+        if(self.validateMove(action)):
             self.processMove(action)
 
-            if self.hasArrived():
-                self.renderEndScreen()
-                return self.reward
-    pass
+        if(self.hasArrived()):
+            self.renderEndScreen()
+            return self.getObs(True)
 
+        return self.getObs(False)
+
+    # We should change wait for render depening on which agent is navigating the map, Could be a cool way to display the differences between them
     def waitForRender(self):
-        time.sleep(1)
+        time.sleep(0)
 
     # renders current state if enviroment
     def render(self):
@@ -147,8 +203,10 @@ class MapTraversalEnvironment(gym.Env):
     def renderFrame(self):
         if self.window is None and self.renderMode == "human":
             pygame.init()
-            self.mapImage = pygame.image.load('campusMap.png').convert
             self.window.blit(self.mapImage, self.window.get_rect())
+            pygame.display.update()
+            self.waitForRender()
+            
         if self.clock is None and self.renderMode == "human":
             self.clock = pygame.time.Clock()
 
@@ -156,7 +214,8 @@ class MapTraversalEnvironment(gym.Env):
         self.waitForRender()
     
     def drawPath():
-        pass
+        for x in range(WIDTH):
+            self.mapImage.set_at((self.currentLocation[0],self.currentLocation[1]) , (255,0,0))
 
     def close(self):
         if self.window is not None:

@@ -83,37 +83,46 @@ class MapTraversalEnvironment(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         
-        # Reset the output pygame map
-        if self.window is not None:
-             self.mapImage = self.mapSurface.convert()
-        else:
-             self.mapImage = self.mapSurface
-
-        self.currentLocation = np.array([0, 0])
-        self.targetLocation = np.array([0, 0])
-        
         # Check if options dict contains use_random flag
         use_random = True
         if options is not None and isinstance(options, dict):
             use_random = options.get('use_random', True)
         
-        # Set random start and goal only if use_random is True
+        # Only reset positions if use_random is True
+        # Otherwise, preserve existing positions
         if use_random:
+            # Reset the output pygame map
+            if self.window is not None:
+                 self.mapImage = self.mapSurface.convert()
+            else:
+                 self.mapImage = self.mapSurface
+
+            self.currentLocation = np.array([0, 0])
+            self.targetLocation = np.array([0, 0])
             self.randomStartAndTarget()
+        # If use_random is False, don't change positions or map
 
         return self.getObs(), self.getInfo()
     
     # Reset without randomizing positions (keeps current start/end)
     def resetMap(self):
         """Reset the map image without changing positions"""
+        # Store current positions
+        saved_start = self.currentLocation.copy() if np.any(self.currentLocation != [0, 0]) else None
+        saved_target = self.targetLocation.copy() if np.any(self.targetLocation != [0, 0]) else None
+        
+        # Reset the map image
         if self.window is not None:
             self.mapImage = self.mapSurface.convert()
         else:
             self.mapImage = self.mapSurface
-        # Redraw markers
-        if np.any(self.currentLocation != [0, 0]):
+        
+        # Restore and redraw markers
+        if saved_start is not None:
+            self.currentLocation = saved_start
             self.drawStartMarker(self.currentLocation)
-        if np.any(self.targetLocation != [0, 0]):
+        if saved_target is not None:
+            self.targetLocation = saved_target
             self.drawEndMarker(self.targetLocation)
 
     # Set start 
@@ -247,7 +256,7 @@ class MapTraversalEnvironment(gym.Env):
                 if pixelColour == (0, 255, 0):
                     self.map[x][y] = 1
 
-    def step(self, action):
+    def step(self, action, render_path=False):
         reward = -1 
         terminated = False
         truncated = False
@@ -267,14 +276,15 @@ class MapTraversalEnvironment(gym.Env):
             
             if self.validateMove(new_loc):
                 self.currentLocation = new_loc
-                self.drawStepPath()
+                if render_path:
+                    self.drawStepPath()
             else:
                 reward = -2 
 
         observation = self.getObs()
         info = self.getInfo()
         
-        if self.renderMode == "human":
+        if self.renderMode == "human" and render_path:
             self.renderFrame()
             
         return observation, reward, terminated, truncated, info
@@ -311,3 +321,4 @@ register(
     entry_point="MapTraversal:MapTraversalEnvironment",
     max_episode_steps=2000,
 )
+

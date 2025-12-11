@@ -113,65 +113,44 @@ def runAStar(env, start_pos, end_pos):
         print("No path found between start and end positions!")
 
 def runRL(env, start_pos, end_pos):
-    """Run RL model and display path"""
+    """Run RL model and display path - optimized version"""
     print("\nRunning Reinforcement Learning model...")
     print("Training Q-table (this may take a moment)...")
     
-    # Create a temporary environment for training
+    # Create a temporary environment for training (no rendering for speed)
     train_env = MapTraversalEnvironment(renderMode=None)
-    q_table = trainRLModel(train_env, episodes=200, is_training=True)
+    
+    # Import the optimized training function
+    from NewRLModel import run as trainRL, findPathFromQTable
+    
+    # Train Q-table (optimized, no rendering)
+    print("Training in progress... (no rendering for speed)")
+    # Reduced episodes for faster execution - can be increased for better paths
+    q_table = trainRL(episodes=250, is_training=True, render=False, env=train_env)
     train_env.close()
     
-    print("Finding path using trained Q-table...")
+    print("Finding optimal path using trained Q-table...")
     
-    # Reset map and set custom positions
-    env.resetMap()
-    env.setStart(start_pos)
-    env.setTarget(end_pos)
-    obs = env.getObs()
+    # Create a pathfinding environment (no rendering during pathfinding)
+    path_env = MapTraversalEnvironment(renderMode=None)
+    path_env.setStart(start_pos)
+    path_env.setTarget(end_pos)
     
-    path = []
-    state = obs["agent"][1] * env.width + obs["agent"][0]
-    terminated = False
-    truncated = False
-    max_steps = 5000
-    steps = 0
-    visited = set()
+    # Find path without rendering (like A*)
+    path = findPathFromQTable(q_table, path_env, start_pos, end_pos)
+    path_env.close()
     
-    while not (terminated or truncated) and steps < max_steps:
-        current_state = state
-        if current_state in visited:
-            # Avoid infinite loops
-            break
-        visited.add(current_state)
-        
-        action = np.argmax(q_table[state, :])
-        new_obs, reward, terminated, truncated, info = env.step(action)
-        
-        current_pos = tuple(obs["agent"])
-        path.append(current_pos)
-        
-        state = new_obs["agent"][1] * env.width + new_obs["agent"][0]
-        obs = new_obs
-        steps += 1
-        
-        # Check if we're close enough to goal
-        dist = np.linalg.norm(np.array(new_obs["agent"]) - np.array(new_obs["target"]))
-        if dist < 10.0:
-            path.append(tuple(new_obs["agent"]))
-            terminated = True
-            break
-    
-    # Reset map to show clean path
+    # Reset main environment map to show clean path
     env.resetMap()
     env.setStart(start_pos)
     env.setTarget(end_pos)
     
-    if path:
-        print(f"Path found! Length: {len(path)} steps")
+    if path and len(path) > 1:
+        print(f"Fastest path found! Length: {len(path)} steps")
+        # Display path all at once (like A*) - path will be drawn in RED
         env.drawPath(path)
         env.render()
-        print("Path displayed in red. Press any key to continue...")
+        print("Fastest route displayed in RED. Press any key to continue...")
         
         # Wait for user to see the path
         clock = pygame.time.Clock()
@@ -186,52 +165,16 @@ def runRL(env, start_pos, end_pos):
     else:
         print("No path found!")
 
-def trainRLModel(env, episodes=200, is_training=True):
-    """Train RL model and return Q-table"""
-    q = np.zeros((env.width * env.height, env.action_space.n))
-    
-    learning_rate = 0.9
-    discount_factor = 0.9
-    epsilon = 0.5
-    epsilon_decay = 0.001
-    rng = np.random.default_rng()
-    
-    for i in range(episodes):
-        obs, info = env.reset(options={'use_random': True})
-        
-        state = obs["agent"][1] * env.width + obs["agent"][0]
-        terminated = False
-        truncated = False
-        
-        while not (terminated or truncated):
-            if is_training and rng.random() < epsilon:
-                action = env.action_space.sample()
-            else:
-                action = np.argmax(q[state, :])
-            
-            new_obs, reward, terminated, truncated, _ = env.step(action)
-            new_state = new_obs["agent"][1] * env.width + new_obs["agent"][0]
-            
-            if is_training:
-                q[state, action] = q[state, action] + learning_rate * (
-                    reward + discount_factor * np.max(q[new_state, :]) - q[state, action]
-                )
-            
-            state = new_state
-        
-        epsilon = max(epsilon - epsilon_decay, 0)
-        
-        if (i + 1) % 50 == 0:
-            print(f"Training episode {i+1}/{episodes}")
-    
-    return q
-
 def main():
     # Initialize environment
     env = MapTraversalEnvironment(renderMode="human")
     
-    # Reset to show the map without random positions
-    env.reset(options={'use_random': False})
+    # Don't reset - just show the map (positions will be set by user)
+    # Initialize map image
+    if env.window is not None:
+        env.mapImage = env.mapSurface.convert()
+    else:
+        env.mapImage = env.mapSurface
     env.render()
     
     print("="*50)

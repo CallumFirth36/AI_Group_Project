@@ -1,5 +1,5 @@
 import numpy as np
-from MapTraversal import MapTraversalEnvironment
+from CampusTraversalEnvironment import MapTraversalEnvironment
 
 def run(episodes, is_training=True, render=False):
 

@@ -92,27 +92,136 @@ class MapTraversalEnvironment(gym.Env):
         self.currentLocation = np.array([0, 0])
         self.targetLocation = np.array([0, 0])
         
-        # Set random start and goal
-        self.randomStartAndTarget()
+        # Check if options dict contains use_random flag
+        use_random = True
+        if options is not None and isinstance(options, dict):
+            use_random = options.get('use_random', True)
+        
+        # Set random start and goal only if use_random is True
+        if use_random:
+            self.randomStartAndTarget()
 
         return self.getObs(), self.getInfo()
+    
+    # Reset without randomizing positions (keeps current start/end)
+    def resetMap(self):
+        """Reset the map image without changing positions"""
+        if self.window is not None:
+            self.mapImage = self.mapSurface.convert()
+        else:
+            self.mapImage = self.mapSurface
+        # Redraw markers
+        if np.any(self.currentLocation != [0, 0]):
+            self.drawStartMarker(self.currentLocation)
+        if np.any(self.targetLocation != [0, 0]):
+            self.drawEndMarker(self.targetLocation)
 
     # Set start 
     def setStart(self, startPos):
         self.currentLocation = np.array(startPos)
+        self.drawStartMarker(self.currentLocation)
 
     # Set goal and draw marker on map
     def setTarget(self, targetPos):
         self.targetLocation = np.array(targetPos)
-        self.drawMarker(self.targetLocation)
+        self.drawEndMarker(self.targetLocation)
     
-    # Draw blue marker on map
-    def drawMarker(self, location):
+    # Draw blue marker (end) on map
+    def drawEndMarker(self, location):
         x, y = location
-        for i in range(-2, 3):
-            for j in range(-2, 3):
-                if -1 < x+i < self.width and -1 < y+j < self.height:
-                    self.mapImage.set_at((x+i, y+j),(0, 0, 255))
+        radius = 5
+        for i in range(-radius, radius + 1):
+            for j in range(-radius, radius + 1):
+                if i*i + j*j <= radius*radius:
+                    px, py = x + i, y + j
+                    if 0 <= px < self.width and 0 <= py < self.height:
+                        self.mapImage.set_at((px, py), (0, 0, 255))  # Blue
+    
+    # Draw red marker (start) on map
+    def drawStartMarker(self, location):
+        x, y = location
+        radius = 5
+        for i in range(-radius, radius + 1):
+            for j in range(-radius, radius + 1):
+                if i*i + j*j <= radius*radius:
+                    px, py = x + i, y + j
+                    if 0 <= px < self.width and 0 <= py < self.height:
+                        self.mapImage.set_at((px, py), (255, 0, 0))  # Red
+    
+    # Draw marker on map (legacy method for compatibility)
+    def drawMarker(self, location):
+        self.drawEndMarker(location)
+    
+    # Find nearest valid pixel to a click position
+    # clickPos is in pygame format (x, y) which corresponds to (col, row)
+    def findNearestValidPixel(self, clickPos, searchRadius=50):
+        x, y = clickPos  # x is column, y is row
+        best_pos = None
+        best_dist = float('inf')
+        
+        # Convert to map coordinates: map uses [row][col] = [y][x]
+        for row in range(max(0, y - searchRadius), min(self.height, y + searchRadius)):
+            for col in range(max(0, x - searchRadius), min(self.width, x + searchRadius)):
+                if self.map[col][row] == 1:  # Note: map is [col][row] based on generateGridValues
+                    dist = np.sqrt((col - x)**2 + (row - y)**2)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_pos = (col, row)  # Return as (col, row) = (x, y) in map coordinates
+        
+        return best_pos
+    
+    # Get valid neighbors for pathfinding
+    def getNeighbors(self, pos):
+        x, y = pos
+        neighbors = []
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
+        
+        for dx, dy in directions:
+            new_x, new_y = x + dx, y + dy
+            if self.validateMove((new_x, new_y)):
+                neighbors.append((new_x, new_y))
+        
+        return neighbors
+    
+    # Draw complete path
+    def drawPath(self, path):
+        """Draw a complete path as a red line"""
+        if path is None or len(path) == 0:
+            return
+        
+        for i in range(len(path) - 1):
+            start = path[i]
+            end = path[i + 1]
+            self.drawLine(start, end, (255, 0, 0))
+    
+    # Draw a line between two points
+    def drawLine(self, start, end, color):
+        """Bresenham's line algorithm"""
+        x0, y0 = int(start[0]), int(start[1])
+        x1, y1 = int(end[0]), int(end[1])
+        
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+        
+        x, y = x0, y0
+        
+        while True:
+            if 0 <= x < self.width and 0 <= y < self.height:
+                self.mapImage.set_at((x, y), color)
+            
+            if x == x1 and y == y1:
+                break
+            
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x += sx
+            if e2 < dx:
+                err += dx
+                y += sy
 
     # Set random start and goal
     def randomStartAndTarget(self):
@@ -158,7 +267,7 @@ class MapTraversalEnvironment(gym.Env):
             
             if self.validateMove(new_loc):
                 self.currentLocation = new_loc
-                self.drawPath()
+                self.drawStepPath()
             else:
                 reward = -2 
 
@@ -176,9 +285,17 @@ class MapTraversalEnvironment(gym.Env):
             pygame.event.pump()
             self.window.blit(self.mapImage, (0, 0))
             pygame.display.flip()
+    
+    # Render method for gymnasium API compatibility
+    def render(self):
+        if self.renderMode == "human":
+            self.renderFrame()
+        elif self.renderMode == "rgb_array":
+            # Return RGB array if needed in the future
+            pass
 
-    # Draw redLine for where model has gone
-    def drawPath(self):
+    # Draw redLine for where model has gone (legacy method for step-by-step)
+    def drawStepPath(self):
         x, y = self.currentLocation
         if 0 <= x < self.width and 0 <= y < self.height:
             self.mapImage.set_at((x, y), (255, 0, 0))

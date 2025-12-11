@@ -1,61 +1,41 @@
-import numpy as np
-
-# Number of Nodes is used to create an adjacency matrix
-
-# use add node to connect two nodes and add the weight between them
-
-# The same weight is added for both directions e.g. 1 to 2 = 10 and also 2 to 1 = 10
-
-# dijkstra algorithm may have some problems but i haven't been able to fully test it yet!
-
-
 class dijkstraTableEntry:
-    def __init__(self, weight, predecessor):
-        self.weight = weight
+    def __init__(self):
+        self.weight = 99999999
         self.visited = False
-        self.predecessor = predecessor
+        self.predecessor = -1
 
 class adjacencyMatrix:
 
     def __init__(self, numberOfNodes):
         self.table = np.zeros((numberOfNodes,numberOfNodes))
+        self.dijkstraTable = [dijkstraTableEntry() for i in range(numberOfNodes)]
 
     def addNode(self, nodeFrom, nodeTo, weight):
 
         self.table[nodeFrom][nodeTo] = weight
         self.table[nodeTo][nodeFrom] = weight
 
-    def dijkstra(self, startNode):
+    def dijkstra(self, startNode, numberOfNodes):
+        nodeQueue = []
+        self.dijkstraTable[startNode].weight = 0
 
-        numberOfNodes = len(self.table)
-        nextNode = 0
-        currentNode = -1
+        nodeQueue.append(startNode)
 
-        currentNode = startNode
-
-        self.dijkstraTable = [dijkstraTableEntry(0,-1) for i in range(numberOfNodes)]
+        for x in range(numberOfNodes):
+            if x != startNode:
+                self.dijkstraTable[x].predecessor = -1
+                self.dijkstraTable[x].weight = 9999999
+                nodeQueue.insert(0,x)
         
-        while nextNode != -1:
-
-            nextNode = -1
-
+        while len(nodeQueue) > 0:
+            currentNode = nodeQueue.pop()
+            print(currentNode)
             for x in range(numberOfNodes):
-                if self.table[currentNode][x] != 0 and not self.dijkstraTable[x].visited:
-
-                    if self.dijkstraTable[x].weight > self.table[currentNode][x] + self.dijkstraTable[currentNode].weight:
+                if self.table[currentNode][x] != 0:
+                    if self.table[currentNode][x] + self.dijkstraTable[currentNode].weight < self.dijkstraTable[x].weight:
                         self.dijkstraTable[x].weight = self.table[currentNode][x] + self.dijkstraTable[currentNode].weight
                         self.dijkstraTable[x].predecessor = currentNode
-
-                    if nextNode == -1 or self.dijkstraTable[x].weight < self.dijkstraTable[nextNode].weight:
-                        nextNode = x
-            
-            self.dijkstraTable[currentNode].visited = True
-            currentNode = nextNode
-        
-        return self.dijkstraTable
-
-
-
+                        print(currentNode ," ",x, " ", self.dijkstraTable[x].predecessor)
         
 
 

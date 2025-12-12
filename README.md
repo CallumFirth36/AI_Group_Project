@@ -6,7 +6,7 @@ This project uses both a search algorithm and machine learning (Reinforcement Le
 - [Installation](#installation)
 - [Structure](#structure)
 - [Enviromnent](#enviromnent)
-- [Search Algorithm](#search algorithm)
+- [Search Algorithm](#search-algorithm)
 - [Contributers](#contributers)
 
 ## Requirements

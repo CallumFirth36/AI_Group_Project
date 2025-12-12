@@ -39,7 +39,16 @@ Observation Space
 - Target location
 
 ## Search Algorithm
-add something
+- Implements the A (A-star) search algorithm* to find the shortest path on the campus map grid using Manhattan distance as an admissible heuristic.
+- Treats walkable (green) pixels as nodes with 4-directional movement; guarantees optimal and complete paths.
+- Runs instantly on the large map and draws the path as a smooth red line.
+- In the program: Choose option 2 after selecting start (red dot) and end (blue dot) to see the optimal path displayed.
+
+## Reinforcement learning Algorithm
+- Implements tabular Q-learning, a model-free reinforcement learning method that trains a Q-table to learn an optimal policy for navigating the campus map.
+- Trains on random episodes (default 250) with ε-greedy exploration; rewards encourage reaching the goal quickly while penalising invalid moves.
+- Uses a hybrid path extraction: BFS guided by Q-values for shorter paths, with greedy fallback; draws the learned path as a red line.
+- In the program: Choose option 1 after selecting start (red dot) and end (blue dot)—it trains quickly then displays the learned path.
 
 ## Contributers
 - Callum Firth 2635930

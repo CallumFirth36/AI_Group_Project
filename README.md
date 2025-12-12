@@ -6,7 +6,7 @@ This project uses both a search algorithm and machine learning (Reinforcement Le
 - [Installation](#installation)
 - [Structure](#structure)
 - [Enviromnent](#enviromnent)
-- [Search Algoritm](#search algoritm)
+- [Search Algorithm](#search algorithm)
 - [Contributers](#contributers)
 
 ## Requirements
@@ -38,7 +38,7 @@ Observation Space
 - Current location
 - Target location
 
-## Search Algoritm
+## Search Algorithm
 add something
 
 ## Contributers

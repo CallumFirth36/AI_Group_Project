@@ -42,9 +42,9 @@ Observation Space
 add something
 
 ## Contributers
-Callum Firth 2635930
-Jonny Forbes 2643497
-Bailey Clark 2636229
-firstName lastName MatriculationNumber
+- Callum Firth 2635930
+- Jonny Forbes 2643497
+- Bailey Clark 2636229
+- firstName lastName MatriculationNumber
 
 

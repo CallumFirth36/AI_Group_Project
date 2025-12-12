@@ -54,6 +54,6 @@ Observation Space
 - Callum Firth 2635930
 - Jonny Forbes 2643497
 - Bailey Clark 2636229
-- firstName lastName MatriculationNumber
+- Logan Howie 2639383
 
 
